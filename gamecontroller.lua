@@ -110,7 +110,7 @@ function GameController:update(dt)
             self.currentHoverY = hoverY
             self.currentField:hoverCells(hoverX, hoverY, button)
         elseif hoverX ~= self.currentHoverX or hoverY ~= self.currentHoverY then
-            self.currentField:hoverOutCells(self.currentHoverX, self.currentHoverY)
+            self.currentField:hoverOutCells(self.currentHoverX, self.currentHoverY, button)
             -- Update hover position only if it has changed
             self.currentHoverX = hoverX
             self.currentHoverY = hoverY
@@ -118,7 +118,7 @@ function GameController:update(dt)
         end
     elseif self.currentHoverX or self.currentHoverY then
         -- If we were hovering but now are not, clear the hover state
-        self.currentField:hoverOutCells(self.currentHoverX, self.currentHoverY)
+        self.currentField:hoverOutCells(self.currentHoverX, self.currentHoverY, button)
         self.currentHoverX = nil
         self.currentHoverY = nil
     end

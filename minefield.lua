@@ -13,7 +13,7 @@ MineField = {
 
 
 CellState = {
-    EMPTY = 0,
+    HIDDEN = 0,
     MINE = 1,
     FLAGGED = 2,
     REVEALED = 3,
@@ -36,7 +36,7 @@ function MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
         for j = 1, height do
             instance.board[i] = instance.board[i] or {}
             instance.board[i][j] = {
-                state = CellState.EMPTY, -- Cell state: EMPTY, MINE, FLAGGED, REVEALED
+                state = CellState.HIDDEN, -- Cell state: HIDDEN, MINE, FLAGGED, REVEALED
                 flagged = false,         -- Is this cell flagged?
                 value = 0,            -- Value for revealed cells (number of surrounding mines)
                 revealed = false,        -- Is this cell revealed?
@@ -45,7 +45,64 @@ function MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
         end
     end
 
+    -- New properties for hover management:
+    instance.hoverPressedCells = {}
+    instance.hoverCenter = nil
+
     return instance
+end
+
+-- New function: clear hover pressed cells
+function MineField:clearHoverCells()
+    for _, coord in ipairs(self.hoverPressedCells) do
+        local x, y = coord.x, coord.y
+        if self.board[x][y].state == CellState.PRESSED then
+            self.board[x][y].state = CellState.HIDDEN
+        end
+    end
+    self.hoverPressedCells = {}
+    self.hoverCenter = nil
+end
+
+-- New function: update hover pressed cells
+function MineField:updateHoverCells(newX, newY, button)
+    if not self.hoverCenter or self.hoverCenter.x ~= newX or self.hoverCenter.y ~= newY or self.hoverCenter.button ~= button then
+        self:clearHoverCells()
+        self.hoverCenter = {x = newX, y = newY, button = button}
+    end
+    local newCoords = {}
+    table.insert(newCoords, {x = newX, y = newY})
+    if button == 3 then
+        local neighbors = {
+            {x = -1, y = -1}, {x = 0, y = -1}, {x = 1, y = -1},
+            {x = -1, y = 0},                {x = 1, y = 0},
+            {x = -1, y = 1},  {x = 0, y = 1}, {x = 1, y = 1},
+        }
+        for _, offset in ipairs(neighbors) do
+            table.insert(newCoords, {x = newX + offset.x, y = newY + offset.y})
+        end
+    end
+    for _, coord in ipairs(newCoords) do
+        local x, y = coord.x, coord.y
+        if x >= 1 and x <= self.width and y >= 1 and y <= self.height then
+            local cell = self.board[x][y]
+            if cell.state == CellState.HIDDEN then
+                cell.state = CellState.PRESSED
+                table.insert(self.hoverPressedCells, {x = x, y = y})
+            end
+        end
+    end
+end
+
+function MineField:hoverCells(gridX, gridY, button)
+    if gridX < 1 or gridX > self.width or gridY < 1 or gridY > self.height then
+        return -- Invalid cell
+    end
+    self:updateHoverCells(gridX, gridY, button)
+end
+
+function MineField:hoverOutCells(gridX, gridY, button)
+    self:clearHoverCells()
 end
 
 local function countFlagsAround(board, gridX, gridY, width, height)
@@ -65,59 +122,6 @@ local function countFlagsAround(board, gridX, gridY, width, height)
         end
     end
     return flags
-end
-
-function MineField:hoverOutCells(gridX, gridY)
-    if gridX < 1 or gridX > self.width or gridY < 1 or gridY > self.height then
-        return -- Invalid cell
-    end
-    local cell = self.board[gridX][gridY]
-    
-    if cell.state == CellState.PRESSED then
-        cell.state = CellState.EMPTY
-    end
-
-end
-
-function MineField:hoverCells(gridX, gridY, button)
-    if gridX < 1 or gridX > self.width or gridY < 1 or gridY > self.height then
-        return -- Invalid cell
-    end
-    local cell = self.board[gridX][gridY]
-
-    if button == 0 then
-        -- Hovering without clicking, just update the pressed state
-        if cell.state == CellState.EMPTY then
-            cell.state = CellState.PRESSED
-        end
-        return
-    end
-    
-    if button == 1 or button == 2 then -- click
-        if cell.state == CellState.EMPTY then
-            cell.state = CellState.PRESSED
-        end
-    elseif button == 3 then
-        -- Change the state of the surrounding cells if both buttons are pressed
-        if cell.state == CellState.REVEALED then
-            cell.state = CellState.PRESSED
-            local next_cells = {
-                {x = -1, y = -1}, {x = 0, y = -1}, {x = 1, y = -1},
-                {x = -1, y = 0}, {x = 1, y = 0},
-                {x = -1, y = 1}, {x = 0, y = 1}, {x = 1, y = 1}
-            }
-            for _, offset in ipairs(next_cells) do
-                local nx = gridX + offset.x
-                local ny = gridY + offset.y
-                if nx >= 1 and nx <= self.width and ny >= 1 and ny <= self.height then
-                    local nextCell = self.board[nx][ny]
-                    if nextCell.state == CellState.EMPTY then
-                        nextCell.state = CellState.PRESSED
-                    end
-                end
-            end
-        end
-    end
 end
 
 function MineField:clickCell(gridX, gridY)
@@ -152,7 +156,7 @@ function MineField:placeMines(ix, iy)
         local y = math.random(1, self.height)
 
         -- Ensure we don't place a mine on the initial position
-        if self.board[x][y].state == CellState.EMPTY and (x ~= ix or y ~= iy) then
+        if self.board[x][y].state == CellState.HIDDEN and (x ~= ix or y ~= iy) then
             self.board[x][y].isMine = true
             placedMines = placedMines + 1
         end
@@ -177,13 +181,8 @@ function MineField:placeMines(ix, iy)
                             self.board[nx][ny].isMine then
                                 minesAround = minesAround + 1
                         end
-                    end
-                if minesAround > 0 then
-                    cell.value = minesAround
-                else
-                    cell.state = CellState.EMPTY -- Set to empty if no mines around
-                end
-
+                    end   
+                cell.value = minesAround
             end
         end
     end
@@ -212,7 +211,7 @@ function MineField:revealCell(gridX, gridY)
         return
     end
     if cell.state ~= CellState.REVEALED then
-        if cell.value ~= CellState.EMPTY then
+        if cell.value ~= CellState.HIDDEN then
              -- If the cell has a value, just reveal it
             cell.state = CellState.REVEALED
             return
@@ -252,7 +251,7 @@ function MineField:draw(cellSprites)
                 sprite = cellSprites.FLAGGED
             elseif cell.state == CellState.PRESSED then
                 sprite = cellSprites.EMPTY -- Use empty sprite for pressed cells
-                love.graphics.setColor(0.8, 0.3, 0.3) -- Reddish color for pressed cells
+                --love.graphics.setColor(0.8, 0.3, 0.3) -- Reddish color for pressed cells
             elseif cell.state == CellState.REVEALED then
                 local value = cell.value
                 -- select sprite based on the value of the cell
@@ -275,7 +274,7 @@ function MineField:draw(cellSprites)
                 elseif value == 8 then
                     sprite = cellSprites.Number[8]
                 else
-                    sprite = cellSprites.EMPTY
+                    sprite = cellSprites.HIDDEN
                 end
             else
                 sprite = cellSprites.HIDDEN -- Default sprite for hidden cells
@@ -320,15 +319,15 @@ function MineField:handleRelease(gridX, gridY, button)
     local cell = self.board[gridX][gridY]
 
     if button == 1 then -- Left click release
-        if cell.state == CellState.PRESSED or cell.state == CellState.EMPTY then
+        if cell.state == CellState.PRESSED or cell.state == CellState.HIDDEN then
             self:clickCell(gridX, gridY)
         end
     elseif button == 2 then -- Right click release
         --place or remove a flag
-        if cell.state == CellState.EMPTY or cell.state == CellState.PRESSED then
+        if cell.state == CellState.HIDDEN or cell.state == CellState.PRESSED then
             cell.state = CellState.FLAGGED
         elseif cell.state == CellState.FLAGGED then
-            cell.state = CellState.EMPTY
+            cell.state = CellState.HIDDEN
         end
             
     elseif button == "both" then -- Both buttons released
@@ -371,7 +370,7 @@ function MineField:revealSurroundingCells(gridX, gridY)
         local ny = gridY + offset.y
         if nx >= 1 and nx <= self.width and ny >= 1 and ny <= self.height then
             local cell = self.board[nx][ny]
-            if cell.state == CellState.EMPTY then
+            if cell.state == CellState.HIDDEN then
                 if cell.isMine then
                     -- Hit a mine - game over
                     print("Game Over! You hit a mine!")
