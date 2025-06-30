@@ -8,12 +8,11 @@ GameController = {
     currentScore = 0,
     screenWidth = 800,
     screenHeight = 600,
-    CellSprites = {}
+    CellSprites = {},
+    Components = {}
 }
 
 GameController.__index = GameController
-
-
 
 CellSpritesNames = {
     EMPTY = "empty_cell.png",
@@ -95,11 +94,13 @@ local BombCounter = {
     y = 0,
     count = 0
 }
-function BombCounter:updatePosition(timerY, timerHeight)
+function BombCounter:update(dt, gc)
+    -- Position below Timer
+    local timer = gc.Components.TimerComponent
     self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = timerY + timerHeight + self.margin
-end
-function BombCounter:update(field)
+    self.y = timer.y + timer.height + self.margin
+    -- Update count
+    local field = gc.currentField
     if field then
         local flags = 0
         for i = 1, field.width do
@@ -154,12 +155,14 @@ local CellsHiddenCounter = {
     count = 0,
     gameWon = false
 }
-function CellsHiddenCounter:updatePosition(bombY, bombHeight)
+function CellsHiddenCounter:update(dt, gc)
+    -- Position below BombCounter
+    local bomb = gc.Components.BombCounter
     self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = bombY + bombHeight + self.margin
-end
-function CellsHiddenCounter:update(field)
+    self.y = bomb.y + bomb.height + self.margin
+    -- Update count and win state
     self.gameWon = false
+    local field = gc.currentField
     if field then
         local hidden, allHiddenAreMines, allFlagsCorrect = checkHiddenAndFlags(field)
         self.count = hidden
@@ -191,12 +194,11 @@ local NewGameButton = {
     x = 0,
     y = 0
 }
-function NewGameButton:updatePosition()
+function NewGameButton:update(dt, gc)
     self.x = love.graphics.getWidth() - self.width - self.margin
     self.y = self.margin
 end
 function NewGameButton:draw()
-    self:updatePosition()
     love.graphics.setColor(0.2, 0.6, 0.2)
     love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
     love.graphics.setColor(1, 1, 1)
@@ -220,29 +222,22 @@ function Timer:reset()
     self.elapsed = 0
     self.running = true
 end
-function Timer:update(dt)
+function Timer:update(dt, gc)
+    -- Position below NewGameButton
+    local btn = gc.Components.NewGameButton
+    self.x = love.graphics.getWidth() - self.width - self.margin
+    self.y = btn.y + btn.height + self.margin
     if self.running then
         self.elapsed = self.elapsed + dt
     end
 end
-function Timer:updatePosition()
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = NewGameButton.y + NewGameButton.height + self.margin
-end
 function Timer:draw()
-    self:updatePosition()
     love.graphics.setColor(0.1, 0.1, 0.3)
     love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
     love.graphics.setColor(1, 1, 1)
     local tenths = math.floor(self.elapsed * 10)
     love.graphics.print(string.format("Time: %.1f", tenths / 10), self.x + 10, self.y + 8)
 end
-
--- Add components to GameController
-GameController.NewGameButton = NewGameButton
-GameController.TimerComponent = Timer
-GameController.BombCounter = BombCounter
-GameController.CellsHiddenCounter = CellsHiddenCounter
 
 function GameController:new()
     local instance = setmetatable({}, GameController)
@@ -252,12 +247,15 @@ function GameController:new()
     instance.currentField = nil
     instance.screenWidth = love.graphics.getWidth()
     instance.screenHeight = love.graphics.getHeight()
-
-    -- Load cell sprites or any other resources needed
+    instance.Components = {
+        NewGameButton = NewGameButton,
+        TimerComponent = Timer,
+        BombCounter = BombCounter,
+        CellsHiddenCounter = CellsHiddenCounter
+    }
     instance.CellSprites = loadCellSprites()
     return instance
 end
-
 
 function GameController:update(dt)
     local hoverX, hoverY, button = self:mouseHover()
@@ -282,17 +280,12 @@ function GameController:update(dt)
         self.currentHoverY = nil
     end
 
-    -- Update components
-    self.NewGameButton:updatePosition()
-    self.TimerComponent:update(dt)
-    self.TimerComponent:updatePosition()
-    local timerY = self.TimerComponent.y or 0
-    local timerHeight = self.TimerComponent.height or 0
-    self.BombCounter:updatePosition(timerY, timerHeight)
-    self.BombCounter:update(self.currentField)
-    self.CellsHiddenCounter:updatePosition(self.BombCounter.y, self.BombCounter.height)
-    self.CellsHiddenCounter:update(self.currentField)
-
+    -- Update all components
+    for _, comp in pairs(self.Components) do
+        if comp.update then
+            comp:update(dt, self)
+        end
+    end
     if self.currentField then
         self.currentField:update(dt)
     end
@@ -358,10 +351,41 @@ function GameController:nextLevel()
 end
 
 function GameController:drawComponents()
-    self.NewGameButton:draw()
-    self.TimerComponent:draw()
-    self.BombCounter:draw()
-    self.CellsHiddenCounter:draw()
+    for _, comp in pairs(self.Components) do
+        if comp.draw then
+            comp:draw()
+        end
+    end
+end
+
+function GameController:mousepressed(x, y, button)
+    -- Let components handle mouse press if they want
+    for _, comp in pairs(self.Components) do
+        if comp.isClicked and comp:isClicked(x, y) then
+            if comp == self.Components.NewGameButton then
+                self:restartGame()
+                self:nextLevel()
+                self.Components.TimerComponent:reset()
+            end
+            return
+        end
+    end
+
+    print("Mouse pressed at: " .. x .. ", " .. y .. " with button: " .. button)
+    if self.currentField then
+        local gridX, gridY = require("utils").calculateGridPosition(
+            x, y, 
+            self.currentField.offsetX, self.currentField.offsetY, 
+            self.currentField.cellSize, 
+            self.currentField.width, self.currentField.height
+        )
+        if gridX ~= -1 and self.currentField.handleClick then
+            if love.mouse.isDown(1) and love.mouse.isDown(2) then
+                button = "both"
+            end
+            self.currentField:handleClick(gridX, gridY, button)
+        end
+    end
 end
 
 return GameController

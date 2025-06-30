@@ -72,7 +72,6 @@ end
 function love.load()
     GC = GameController:new()
     GC:nextLevel()
-    GC.TimerComponent:reset()
 end
 
 function love.draw()
@@ -91,29 +90,7 @@ function love.update(dt)
 end
 
 function love.mousepressed(x, y, button)
-    GC.NewGameButton:updatePosition()
-    if GC.NewGameButton:isClicked(x, y) then
-        GC:restartGame()
-        GC:nextLevel()
-        GC.TimerComponent:reset()
-        return
-    end
-    -- ...existing mouse click logic...
-    print("Mouse pressed at: " .. x .. ", " .. y .. " with button: " .. button)
-    if GC.currentField then
-        local gridX, gridY = require("utils").calculateGridPosition(
-            x, y, 
-            GC.currentField.offsetX, GC.currentField.offsetY, 
-            GC.currentField.cellSize, 
-            GC.currentField.width, GC.currentField.height
-        )
-        if gridX ~= -1 and GC.currentField.handleClick then
-            if love.mouse.isDown(1) and love.mouse.isDown(2) then
-                button = "both"
-            end
-            GC.currentField:handleClick(gridX, gridY, button)
-        end
-    end
+    GC:mousepressed(x, y, button)
 end
 
 function love.mousereleased(x, y, button)
