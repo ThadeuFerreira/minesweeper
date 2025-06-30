@@ -80,9 +80,173 @@ local function loadCellSprites()
     return cellSprites
 end
 
+function GameController:initializeField(width, height, mineCount, cellSize, offsetX, offsetY)
+    local field = MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
+    table.insert(self.mineFields, field)
+    self.currentField = field
+end
+
+-- BombCounter component (now part of GameController)
+local BombCounter = {
+    width = 100,
+    height = 30,
+    margin = 10,
+    x = 0,
+    y = 0,
+    count = 0
+}
+function BombCounter:updatePosition(timerY, timerHeight)
+    self.x = love.graphics.getWidth() - self.width - self.margin
+    self.y = timerY + timerHeight + self.margin
+end
+function BombCounter:update(field)
+    if field then
+        local flags = 0
+        for i = 1, field.width do
+            for j = 1, field.height do
+                if field.board[i][j].state == 2 then -- FLAGGED
+                    flags = flags + 1
+                end
+            end
+        end
+        self.count = field.mineCount - flags
+    else
+        self.count = 0
+    end
+end
+function BombCounter:draw()
+    love.graphics.setColor(0.3, 0.2, 0.2)
+    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("Bombs: " .. tostring(self.count), self.x + 10, self.y + 8)
+end
+
+-- CellsHiddenCounter component (now part of GameController)
+local function checkHiddenAndFlags(field)
+    local hidden = 0
+    local allHiddenAreMines = true
+    local allFlagsCorrect = true
+    for i = 1, field.width do
+        for j = 1, field.height do
+            local cell = field.board[i][j]
+            if cell.state == 0 or cell.state == 4 then -- HIDDEN or PRESSED
+                hidden = hidden + 1
+                if not cell.isMine then
+                    allHiddenAreMines = false
+                end
+            end
+            if cell.state == 2 then -- FLAGGED
+                if not cell.isMine then
+                    allFlagsCorrect = false
+                end
+            end
+        end
+    end
+    return hidden, allHiddenAreMines, allFlagsCorrect
+end
+
+local CellsHiddenCounter = {
+    width = 100,
+    height = 30,
+    margin = 10,
+    x = 0,
+    y = 0,
+    count = 0,
+    gameWon = false
+}
+function CellsHiddenCounter:updatePosition(bombY, bombHeight)
+    self.x = love.graphics.getWidth() - self.width - self.margin
+    self.y = bombY + bombHeight + self.margin
+end
+function CellsHiddenCounter:update(field)
+    self.gameWon = false
+    if field then
+        local hidden, allHiddenAreMines, allFlagsCorrect = checkHiddenAndFlags(field)
+        self.count = hidden
+        if hidden > 0 and allHiddenAreMines and allFlagsCorrect then
+            self.gameWon = true
+        end
+    else
+        self.count = 0
+        self.gameWon = false
+    end
+end
+function CellsHiddenCounter:draw()
+    love.graphics.setColor(0.2, 0.3, 0.2)
+    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("Cells: " .. tostring(self.count), self.x + 10, self.y + 8)
+    if self.gameWon then
+        love.graphics.setColor(1, 1, 0)
+        love.graphics.print("Game Win!", self.x + 10, self.y + self.height + 5)
+        love.graphics.setColor(1, 1, 1)
+    end
+end
+
+-- NewGameButton component (now part of GameController)
+local NewGameButton = {
+    width = 100,
+    height = 30,
+    margin = 10,
+    x = 0,
+    y = 0
+}
+function NewGameButton:updatePosition()
+    self.x = love.graphics.getWidth() - self.width - self.margin
+    self.y = self.margin
+end
+function NewGameButton:draw()
+    self:updatePosition()
+    love.graphics.setColor(0.2, 0.6, 0.2)
+    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("New Game", self.x + 10, self.y + 8)
+end
+function NewGameButton:isClicked(mx, my)
+    return mx >= self.x and mx <= self.x + self.width and my >= self.y and my <= self.y + self.height
+end
+
+-- Timer component (now part of GameController)
+local Timer = {
+    elapsed = 0,
+    running = true,
+    width = 100,
+    height = 30,
+    margin = 10,
+    x = 0,
+    y = 0
+}
+function Timer:reset()
+    self.elapsed = 0
+    self.running = true
+end
+function Timer:update(dt)
+    if self.running then
+        self.elapsed = self.elapsed + dt
+    end
+end
+function Timer:updatePosition()
+    self.x = love.graphics.getWidth() - self.width - self.margin
+    self.y = NewGameButton.y + NewGameButton.height + self.margin
+end
+function Timer:draw()
+    self:updatePosition()
+    love.graphics.setColor(0.1, 0.1, 0.3)
+    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+    love.graphics.setColor(1, 1, 1)
+    local tenths = math.floor(self.elapsed * 10)
+    love.graphics.print(string.format("Time: %.1f", tenths / 10), self.x + 10, self.y + 8)
+end
+
+-- Add components to GameController
+GameController.NewGameButton = NewGameButton
+GameController.TimerComponent = Timer
+GameController.BombCounter = BombCounter
+GameController.CellsHiddenCounter = CellsHiddenCounter
+
 function GameController:new()
     local instance = setmetatable({}, GameController)
-    instance.currentLevel = 1
+    instance.currentLevel = 0
     instance.currentScore = 0
     instance.mineFields = {}
     instance.currentField = nil
@@ -94,11 +258,6 @@ function GameController:new()
     return instance
 end
 
-function GameController:initializeField(width, height, mineCount, cellSize, offsetX, offsetY)
-    local field = MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
-    table.insert(self.mineFields, field)
-    self.currentField = field
-end
 
 function GameController:update(dt)
     local hoverX, hoverY, button = self:mouseHover()
@@ -122,6 +281,17 @@ function GameController:update(dt)
         self.currentHoverX = nil
         self.currentHoverY = nil
     end
+
+    -- Update components
+    self.NewGameButton:updatePosition()
+    self.TimerComponent:update(dt)
+    self.TimerComponent:updatePosition()
+    local timerY = self.TimerComponent.y or 0
+    local timerHeight = self.TimerComponent.height or 0
+    self.BombCounter:updatePosition(timerY, timerHeight)
+    self.BombCounter:update(self.currentField)
+    self.CellsHiddenCounter:updatePosition(self.BombCounter.y, self.BombCounter.height)
+    self.CellsHiddenCounter:update(self.currentField)
 
     if self.currentField then
         self.currentField:update(dt)
@@ -168,7 +338,7 @@ function GameController:saveGame()
 end
 
 function GameController:restartGame()
-    self.currentLevel = 1
+    self.currentLevel = 0
     self.currentScore = 0
     self.mineFields = {}
     self.currentField = nil
@@ -185,6 +355,13 @@ function GameController:nextLevel()
     local offsetY = (self.screenHeight - (cellSize * newHeight)) / 2
 
     self:initializeField(newWidth, newHeight, newMineCount, cellSize, offsetX, offsetY)
+end
+
+function GameController:drawComponents()
+    self.NewGameButton:draw()
+    self.TimerComponent:draw()
+    self.BombCounter:draw()
+    self.CellsHiddenCounter:draw()
 end
 
 return GameController
