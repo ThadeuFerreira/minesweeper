@@ -102,9 +102,6 @@ function love.mousereleased(x, y, button)
             GC.currentField.width, GC.currentField.height
         )
         if gridX ~= -1 and GC.currentField.handleRelease then -- Ensure method exists
-            if love.mouse.isDown(1) and love.mouse.isDown(2) then
-                button = "both" -- Handle both buttons released
-            end
             GC.currentField:handleRelease(gridX, gridY, button)
         end
     end

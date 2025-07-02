@@ -105,7 +105,8 @@ function BombCounter:update(dt, gc)
         local flags = 0
         for i = 1, field.width do
             for j = 1, field.height do
-                if field.board[i][j].state == 2 then -- FLAGGED
+                local cell = field.board[i][j]
+                if cell.current_state == 2 then -- FLAGGED
                     flags = flags + 1
                 end
             end
@@ -130,13 +131,13 @@ local function checkHiddenAndFlags(field)
     for i = 1, field.width do
         for j = 1, field.height do
             local cell = field.board[i][j]
-            if cell.state == 0 or cell.state == 4 then -- HIDDEN or PRESSED
+            if cell.current_state == 0 or cell.current_state == 4 then -- HIDDEN or PRESSED
                 hidden = hidden + 1
                 if not cell.isMine then
                     allHiddenAreMines = false
                 end
             end
-            if cell.state == 2 then -- FLAGGED
+            if cell.current_state == 2 then -- FLAGGED
                 if not cell.isMine then
                     allFlagsCorrect = false
                 end
@@ -308,9 +309,7 @@ function GameController:mouseHover()
     end
     
     local button = 0 -- Default button value for hover
-    if love.mouse.isDown(1) and love.mouse.isDown(2) then
-        button = 3 -- Handle both buttons pressed
-    elseif love.mouse.isDown(1) then
+    if love.mouse.isDown(1) then
         button = 1 -- Left button pressed
     elseif love.mouse.isDown(2) then
         button = 2 -- Right button pressed
@@ -372,20 +371,6 @@ function GameController:mousepressed(x, y, button)
     end
 
     print("Mouse pressed at: " .. x .. ", " .. y .. " with button: " .. button)
-    if self.currentField then
-        local gridX, gridY = require("utils").calculateGridPosition(
-            x, y, 
-            self.currentField.offsetX, self.currentField.offsetY, 
-            self.currentField.cellSize, 
-            self.currentField.width, self.currentField.height
-        )
-        if gridX ~= -1 and self.currentField.handleClick then
-            if love.mouse.isDown(1) and love.mouse.isDown(2) then
-                button = "both"
-            end
-            self.currentField:handleClick(gridX, gridY, button)
-        end
-    end
 end
 
 return GameController
