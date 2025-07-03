@@ -21,6 +21,50 @@ CellState = {
 }
 MineField.__index = MineField
 
+local function loadCellSprites()
+    local assetsPath = "assets/single-files/"
+    local cellSprites = {
+        Number = {}, -- Initialize Number as a table to hold numbered sprites
+    }
+    --Build the CellSprites table with the paths to the sprites
+    for key, sprite in pairs(CellSpritesNames) do
+        
+        if type(sprite) == "table" then
+            cellSprites[sprite] = {}
+            for number, spriteName in pairs(sprite) do
+                local spritePath = assetsPath .. spriteName
+                -- Check if the sprite file exists
+                if not love.filesystem.getInfo(spritePath) then
+                    print("Warning: Sprite file not found: " .. spritePath)
+                else
+                    -- If the sprite file exists, add it to the CellSprites table
+                    cellSprites[key][number] = love.graphics.newImage(spritePath)
+                end
+            end
+        else
+            local spritePath = assetsPath .. sprite
+            cellSprites[key] = love.graphics.newImage(spritePath)
+        end
+    end
+    
+    -- Check if all required sprites are loaded
+    for key, sprite in pairs(CellSpritesNames) do
+        if type(sprite) == "table" then
+            for number, spriteName in pairs(sprite) do
+                if not cellSprites[key][number] then
+                    print("Error: Sprite not loaded: " .. spriteName)
+                end
+            end
+        else
+            if not cellSprites[key] then
+                print("Error: Sprite not loaded: " .. sprite)
+            end
+        end
+    end
+
+    return cellSprites
+end
+
 function MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
     local instance = setmetatable({}, MineField)
     instance.width = width
@@ -29,6 +73,7 @@ function MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
     instance.cellSize = cellSize or 20
     instance.offsetX = offsetX or 0
     instance.offsetY = offsetY or 0
+    instance.cellSprites = loadCellSprites() -- Load cell sprites
 
 
     -- Initialize the minefield with mines and flags
@@ -233,9 +278,11 @@ end
 
 
 
-function MineField:draw(cellSprites)
+function MineField:draw()
     love.graphics.setColor(1, 1, 1) -- Reset color to white
     local sprite 
+
+    local cellSprites = self.cellSprites or {} -- Use provided cell sprites or default to empty table
     
     for i = 1, self.width do
         for j = 1, self.height do

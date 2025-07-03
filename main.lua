@@ -5,84 +5,31 @@ end
 -- import gamestate
 local GameController = require("gamecontroller")
 local utils = require("utils")
-
-
--- New Game button component
-local NewGameButton = {
-    width = 100,
-    height = 30,
-    margin = 10,
-    x = 0,
-    y = 0
-}
-
-function NewGameButton:updatePosition()
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = self.margin
-end
-
-function NewGameButton:draw()
-    self:updatePosition()
-    love.graphics.setColor(0.2, 0.6, 0.2)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("New Game", self.x + 10, self.y + 8)
-end
-
-function NewGameButton:isClicked(mx, my)
-    return mx >= self.x and mx <= self.x + self.width and my >= self.y and my <= self.y + self.height
-end
-
--- Timer component
-local Timer = {
-    elapsed = 0,
-    running = true,
-    width = 100,
-    height = 30,
-    margin = 10,
-    x = 0,
-    y = 0
-}
-
-function Timer:reset()
-    self.elapsed = 0
-    self.running = true
-end
-
-function Timer:update(dt)
-    if self.running then
-        self.elapsed = self.elapsed + dt
-    end
-end
-
-function Timer:updatePosition()
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = NewGameButton.y + NewGameButton.height + self.margin
-end
-
-function Timer:draw()
-    self:updatePosition()
-    love.graphics.setColor(0.1, 0.1, 0.3)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1)
-    local tenths = math.floor(self.elapsed * 10)
-    love.graphics.print(string.format("Time: %.1f", tenths / 10), self.x + 10, self.y + 8)
-end
+local Displays = require("displays")
 
 function love.load()
     GC = GameController:new()
     GC:nextLevel()
+    local margin = 10
+    local width = 100
+    local height = 30
+    local x = love.graphics.getWidth() - width - margin
+    local y = margin
+    GC:addComponent(Displays.NewGameButton(x, y))
+    y = y + height + margin
+    GC:addComponent(Displays.Timer(x, y))
+    y = y + height + margin
+    GC:addComponent(Displays.BombCounter(x, y))
+    y = y + height + margin
+    GC:addComponent(Displays.CellsHiddenCounter(x, y))
 end
 
 function love.draw()
-    if GC.currentField then
-        GC.currentField:draw(GC.CellSprites)
-    end
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Level: " .. GC.currentLevel, 10, 10)
     love.graphics.print("Score: " .. GC.currentScore, 10, 30)
     love.graphics.print("Total Mines: " .. GC.currentField.mineCount, 10, 50)
-    GC:drawComponents()
+    GC:draw()
 end
 
 function love.update(dt)

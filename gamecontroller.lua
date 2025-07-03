@@ -9,7 +9,7 @@ GameController = {
     screenWidth = 800,
     screenHeight = 600,
     CellSprites = {},
-    Components = {}
+    components = {}
 }
 
 GameController.__index = GameController
@@ -35,210 +35,12 @@ CellSpritesNames = {
 }
 
 
-local function loadCellSprites()
-    local assetsPath = "assets/single-files/"
-    local cellSprites = {
-        Number = {}, -- Initialize Number as a table to hold numbered sprites
-    }
-    --Build the CellSprites table with the paths to the sprites
-    for key, sprite in pairs(CellSpritesNames) do
-        
-        if type(sprite) == "table" then
-            cellSprites[sprite] = {}
-            for number, spriteName in pairs(sprite) do
-                local spritePath = assetsPath .. spriteName
-                -- Check if the sprite file exists
-                if not love.filesystem.getInfo(spritePath) then
-                    print("Warning: Sprite file not found: " .. spritePath)
-                else
-                    -- If the sprite file exists, add it to the CellSprites table
-                    cellSprites[key][number] = love.graphics.newImage(spritePath)
-                end
-            end
-        else
-            local spritePath = assetsPath .. sprite
-            cellSprites[key] = love.graphics.newImage(spritePath)
-        end
-    end
-    
-    -- Check if all required sprites are loaded
-    for key, sprite in pairs(CellSpritesNames) do
-        if type(sprite) == "table" then
-            for number, spriteName in pairs(sprite) do
-                if not cellSprites[key][number] then
-                    print("Error: Sprite not loaded: " .. spriteName)
-                end
-            end
-        else
-            if not cellSprites[key] then
-                print("Error: Sprite not loaded: " .. sprite)
-            end
-        end
-    end
-
-    return cellSprites
-end
-
 function GameController:initializeField(width, height, mineCount, cellSize, offsetX, offsetY)
     local field = MineField:new(width, height, mineCount, cellSize, offsetX, offsetY)
     table.insert(self.mineFields, field)
     self.currentField = field
 end
 
--- BombCounter component (now part of GameController)
-local BombCounter = {
-    width = 100,
-    height = 30,
-    margin = 10,
-    x = 0,
-    y = 0,
-    count = 0
-}
-function BombCounter:update(dt, gc)
-    -- Position below Timer
-    local timer = gc.Components.TimerComponent
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = timer.y + timer.height + self.margin
-    -- Update count
-    local field = gc.currentField
-    if field then
-        local flags = 0
-        for i = 1, field.width do
-            for j = 1, field.height do
-                local cell = field.board[i][j]
-                if cell.current_state == 2 then -- FLAGGED
-                    flags = flags + 1
-                end
-            end
-        end
-        self.count = field.mineCount - flags
-    else
-        self.count = 0
-    end
-end
-function BombCounter:draw()
-    love.graphics.setColor(0.3, 0.2, 0.2)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Bombs: " .. tostring(self.count), self.x + 10, self.y + 8)
-end
-
--- CellsHiddenCounter component (now part of GameController)
-local function checkHiddenAndFlags(field)
-    local hidden = 0
-    local allHiddenAreMines = true
-    local allFlagsCorrect = true
-    for i = 1, field.width do
-        for j = 1, field.height do
-            local cell = field.board[i][j]
-            if cell.current_state == 0 or cell.current_state == 4 then -- HIDDEN or PRESSED
-                hidden = hidden + 1
-                if not cell.isMine then
-                    allHiddenAreMines = false
-                end
-            end
-            if cell.current_state == 2 then -- FLAGGED
-                if not cell.isMine then
-                    allFlagsCorrect = false
-                end
-            end
-        end
-    end
-    return hidden, allHiddenAreMines, allFlagsCorrect
-end
-
-local CellsHiddenCounter = {
-    width = 100,
-    height = 30,
-    margin = 10,
-    x = 0,
-    y = 0,
-    count = 0,
-    gameWon = false
-}
-function CellsHiddenCounter:update(dt, gc)
-    -- Position below BombCounter
-    local bomb = gc.Components.BombCounter
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = bomb.y + bomb.height + self.margin
-    -- Update count and win state
-    self.gameWon = false
-    local field = gc.currentField
-    if field then
-        local hidden, allHiddenAreMines, allFlagsCorrect = checkHiddenAndFlags(field)
-        self.count = hidden
-        if hidden > 0 and allHiddenAreMines and allFlagsCorrect then
-            self.gameWon = true
-        end
-    else
-        self.count = 0
-        self.gameWon = false
-    end
-end
-function CellsHiddenCounter:draw()
-    love.graphics.setColor(0.2, 0.3, 0.2)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Cells: " .. tostring(self.count), self.x + 10, self.y + 8)
-    if self.gameWon then
-        love.graphics.setColor(1, 1, 0)
-        love.graphics.print("Game Win!", self.x + 10, self.y + self.height + 5)
-        love.graphics.setColor(1, 1, 1)
-    end
-end
-
--- NewGameButton component (now part of GameController)
-local NewGameButton = {
-    width = 100,
-    height = 30,
-    margin = 10,
-    x = 0,
-    y = 0
-}
-function NewGameButton:update(dt, gc)
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = self.margin
-end
-function NewGameButton:draw()
-    love.graphics.setColor(0.2, 0.6, 0.2)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("New Game", self.x + 10, self.y + 8)
-end
-function NewGameButton:isClicked(mx, my)
-    return mx >= self.x and mx <= self.x + self.width and my >= self.y and my <= self.y + self.height
-end
-
--- Timer component (now part of GameController)
-local Timer = {
-    elapsed = 0,
-    running = true,
-    width = 100,
-    height = 30,
-    margin = 10,
-    x = 0,
-    y = 0
-}
-function Timer:reset()
-    self.elapsed = 0
-    self.running = true
-end
-function Timer:update(dt, gc)
-    -- Position below NewGameButton
-    local btn = gc.Components.NewGameButton
-    self.x = love.graphics.getWidth() - self.width - self.margin
-    self.y = btn.y + btn.height + self.margin
-    if self.running then
-        self.elapsed = self.elapsed + dt
-    end
-end
-function Timer:draw()
-    love.graphics.setColor(0.1, 0.1, 0.3)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1)
-    local tenths = math.floor(self.elapsed * 10)
-    love.graphics.print(string.format("Time: %.1f", tenths / 10), self.x + 10, self.y + 8)
-end
 
 function GameController:new()
     local instance = setmetatable({}, GameController)
@@ -248,13 +50,11 @@ function GameController:new()
     instance.currentField = nil
     instance.screenWidth = love.graphics.getWidth()
     instance.screenHeight = love.graphics.getHeight()
-    instance.Components = {
-        NewGameButton = NewGameButton,
-        TimerComponent = Timer,
-        BombCounter = BombCounter,
-        CellsHiddenCounter = CellsHiddenCounter
-    }
-    instance.CellSprites = loadCellSprites()
+    
+    -- Use both array and map for components
+    instance.components = {}
+    instance.componentsByName = {}
+    
     return instance
 end
 
@@ -282,7 +82,7 @@ function GameController:update(dt)
     end
 
     -- Update all components
-    for _, comp in pairs(self.Components) do
+    for _, comp in ipairs(self.components) do
         if comp.update then
             comp:update(dt, self)
         end
@@ -349,28 +149,65 @@ function GameController:nextLevel()
     self:initializeField(newWidth, newHeight, newMineCount, cellSize, offsetX, offsetY)
 end
 
-function GameController:drawComponents()
-    for _, comp in pairs(self.Components) do
+function GameController:draw()
+    -- Draw all components
+    for _, comp in ipairs(self.components) do
         if comp.draw then
             comp:draw()
         end
+    end
+    if self.currentField then
+        self.currentField:draw()
     end
 end
 
 function GameController:mousepressed(x, y, button)
     -- Let components handle mouse press if they want
-    for _, comp in pairs(self.Components) do
-        if comp.isClicked and comp:isClicked(x, y) then
-            if comp == self.Components.NewGameButton then
-                self:restartGame()
-                self:nextLevel()
-                self.Components.TimerComponent:reset()
-            end
-            return
+
+    local newGameButton = self:getComponent("NewGameButton")
+    if newGameButton and newGameButton.isClicked and newGameButton:isClicked(x, y) then
+        self:restartGame()
+        self:nextLevel()
+        
+        -- Use the lookup method instead of linear search
+        local timerComponent = self:getComponent("Timer")
+        if timerComponent and timerComponent.reset then
+            timerComponent:reset()
         end
     end
+print("Mouse pressed at: " .. x .. ", " .. y .. " with button: " .. button)
+end
 
-    print("Mouse pressed at: " .. x .. ", " .. y .. " with button: " .. button)
+-- Add ECS-style component management
+function GameController:addComponent(component)
+    -- Add to array for iteration
+    table.insert(self.components, component)
+    
+    -- Add to lookup table for direct access if it has a name/class
+    if component.className then
+        self.componentsByName[component.className] = component
+    end
+    
+    return component
+end
+
+function GameController:removeComponent(component)
+    -- Remove from array
+    for i, c in ipairs(self.components) do
+        if c == component then
+            table.remove(self.components, i)
+            break
+        end
+    end
+    
+    -- Remove from lookup table
+    if component.className and self.componentsByName[component.className] == component then
+        self.componentsByName[component.className] = nil
+    end
+end
+
+function GameController:getComponent(name)
+    return self.componentsByName[name]
 end
 
 return GameController
