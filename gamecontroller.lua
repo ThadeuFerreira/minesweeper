@@ -1,5 +1,6 @@
 local MineField = require("minefield")
 local utils = require("utils")
+local Displays = require("displays")
 
 GameController = {
     currentLevel = 1,
@@ -60,6 +61,30 @@ end
 
 function GameController:update(dt)
     local hoverX, hoverY, button = self:mouseHover()
+
+    local cellHidenCounter = self:getComponent("CellsHiddenCounter")
+    if not cellHidenCounter then
+        print("Error: CellsHiddenCounter component not found!")
+        return
+    end
+    local gameWon = cellHidenCounter.gameWon
+    if gameWon then
+        if self:getComponent("NextLevelButton") then
+            print("Next level button already exists, skipping creation.")
+            return
+        end
+        print("Game won! Level: " .. self.currentLevel .. ", Score: " .. self.currentScore)
+        -- Here you can add logic to handle game win, like showing a message
+        local nextLevelButton = Displays.NextLevelButton(
+            self.screenWidth - 120, 
+            self.screenHeight - 50
+        )
+        if nextLevelButton then
+            print("Next level button found, clicking it to proceed.")
+        end
+        self:addComponent(nextLevelButton)
+        return
+    end
     
     if hoverX ~= -1 and hoverY ~= -1 then
         print("Mouse hover at: " .. hoverX .. ", " .. hoverY .. " with button: " .. button)
@@ -174,8 +199,45 @@ function GameController:mousepressed(x, y, button)
         if timerComponent and timerComponent.reset then
             timerComponent:reset()
         end
+
+        -- Resets game won state
+        local cellHidenCounter = self:getComponent("CellsHiddenCounter")
+        if cellHidenCounter then
+            cellHidenCounter.count = 0
+            cellHidenCounter.gameWon = false
+        end
+        
+        -- Remove the NextLevelButton if it exists
+        local nextLevelButton = self:getComponent("NextLevelButton")
+        if nextLevelButton then
+            self:removeComponent(nextLevelButton)
+        end
+        print("New game button clicked, restarting game.")
+        return
     end
-print("Mouse pressed at: " .. x .. ", " .. y .. " with button: " .. button)
+
+    local nextLevelButton = self:getComponent("NextLevelButton")
+    if nextLevelButton and nextLevelButton.isClicked and nextLevelButton:isClicked(x, y) then
+        print("Next level button clicked, proceeding to next level.")
+        self:nextLevel()
+        -- Reset timer if it exists
+        local timerComponent = self:getComponent("Timer")
+        if timerComponent and timerComponent.reset then
+            timerComponent:reset()
+        end
+
+        -- Resets game won state
+        local cellHidenCounter = self:getComponent("CellsHiddenCounter")
+        if cellHidenCounter then
+            cellHidenCounter.count = 0
+            cellHidenCounter.gameWon = false
+        end
+
+        -- Remove the NextLevelButton after clicking
+        self:removeComponent(nextLevelButton)
+        return
+    end
+
 end
 
 -- Add ECS-style component management
