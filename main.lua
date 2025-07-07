@@ -5,7 +5,7 @@ end
 -- import gamestate
 local GameController = require("gamecontroller")
 local utils = require("utils")
-local Displays = require("displays")
+local Displays = require("displays.displays")
 
 function love.load()
     GC = GameController:new()

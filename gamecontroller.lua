@@ -1,6 +1,6 @@
 local MineField = require("minefield")
 local utils = require("utils")
-local Displays = require("displays")
+local Displays = require("displays.displays")
 
 GameController = {
     currentLevel = 1,
@@ -206,7 +206,7 @@ function GameController:mousepressed(x, y, button)
             cellHidenCounter.count = 0
             cellHidenCounter.gameWon = false
         end
-        
+
         -- Remove the NextLevelButton if it exists
         local nextLevelButton = self:getComponent("NextLevelButton")
         if nextLevelButton then
