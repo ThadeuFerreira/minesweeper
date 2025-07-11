@@ -164,7 +164,7 @@ end
 function GameController:nextLevel()
     self.currentLevel = self.currentLevel + 1
     -- Logic to increase difficulty, e.g., more mines, larger field, etc.
-    local newMineCount = math.min(5 + self.currentLevel * 2, 50) -- Example logic
+    local newMineCount = math.min(7 + self.currentLevel * 3, 100) -- Example logic
     local newWidth = 10 + self.currentLevel -- Example logic
     local newHeight = 10 + self.currentLevel -- Example logic
     local cellSize = math.floor(math.min(self.screenWidth / newWidth, self.screenHeight / newHeight) * 0.8)

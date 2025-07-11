@@ -6,10 +6,17 @@ end
 local GameController = require("gamecontroller")
 local utils = require("utils")
 local Displays = require("displays.displays")
+local SevenSegments = require("displays.sevensegments")
+
 
 function love.load()
     GC = GameController:new()
     GC:nextLevel()
+    
+    -- Create SevenSegment instance first
+    SS = SevenSegments()
+    SS:load()
+    
     local margin = 10
     local width = 100
     local height = 30
@@ -17,8 +24,8 @@ function love.load()
     local y = margin
     GC:addComponent(Displays.NewGameButton(x, y))
     y = y + height + margin
-    GC:addComponent(Displays.Timer(x, y))
-    y = y + height + margin
+    GC:addComponent(Displays.Timer(x, y, SS)) -- Pass SevenSegment instance
+    y = y + 60 + margin -- Use Timer's new height (60)
     GC:addComponent(Displays.BombCounter(x, y))
     y = y + height + margin
     GC:addComponent(Displays.CellsHiddenCounter(x, y))
