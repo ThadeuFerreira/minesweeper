@@ -16,6 +16,11 @@ local function NextLevelButton(x, y)
     function self:isClicked(mx, my)
         return mx >= self.x and mx <= self.x + self.width and my >= self.y and my <= self.y + self.height
     end
+
+    function self:destroy()
+        -- Unsubscribe all signals for this component
+        print("Destroying NextLevelButton")
+    end
     return self
 end
 

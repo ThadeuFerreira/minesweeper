@@ -1,3 +1,5 @@
+local Signals = require("signals")
+
 local function Timer(x, y, sevenSegments)
     -- Center timer horizontally at the top
     local windowWidth = love.graphics.getWidth()
@@ -37,6 +39,10 @@ local function Timer(x, y, sevenSegments)
     self.sevenSegmentScaleY = self.digitHeight / self.sevenSegments.digitHeight
     self.sevenSegmentOffsetX = 0
     self.sevenSegmentOffsetY = 0
+
+    Signals:subscribe("gameover", function(reason)
+        self.running = false
+    end, 0, self)
 
     function self:reset()
         self.elapsed = 0
@@ -94,6 +100,12 @@ local function Timer(x, y, sevenSegments)
                 currentX = currentX + self.digitWidth + self.digitSpacing
             end
         end
+    end
+
+    function self:destroy()
+        -- Unsubscribe all signals for this component
+        Signals:unsubscribeScope(self)
+        -- (Optional) Release other resources here
     end
 
     return self

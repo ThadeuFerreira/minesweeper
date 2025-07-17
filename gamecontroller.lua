@@ -1,6 +1,7 @@
 local MineField = require("minefield")
 local utils = require("utils")
 local Displays = require("displays.displays")
+local Signals = require("signals")
 
 local function GameController()
     local self = {
@@ -39,6 +40,13 @@ local function GameController()
             [8] = "number_8.png",
         }
     }
+
+    Signals:subscribe("gameover", function(reason)
+        print("Game over! Reason:", reason)
+        
+        -- save the game score
+        self:saveGame()
+    end, 0, self)
 
 
     function self:initializeField(width, height, mineCount, cellSize, offsetX, offsetY)
@@ -137,7 +145,7 @@ local function GameController()
         -- Here you would typically serialize gameData to a file or database
         -- For example, using love.filesystem.write or similar
 
-    print("Game saved:", gameData)
+        print("Game saved:", gameData)
     end
 
     function self:restartGame()
@@ -257,6 +265,11 @@ local function GameController()
         -- Remove from lookup table
         if component.className and self.componentsByName[component.className] == component then
             self.componentsByName[component.className] = nil
+        end
+
+        -- Call destroy method if it exists
+        if component.destroy then
+            component:destroy()
         end
     end
 

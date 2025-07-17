@@ -1,3 +1,5 @@
+local Signals = require("signals")
+
 MineField = {
     width = 0,
     height = 0,
@@ -179,7 +181,7 @@ function MineField:clickCell(gridX, gridY)
         end
     if cell.isMine then
         -- Handle mine hit logic here
-        print("Game Over! You hit a mine!")
+        Signals:publish("gameover", "player died")
         self:RevealGrid() -- Reveal the entire grid
         return
     end

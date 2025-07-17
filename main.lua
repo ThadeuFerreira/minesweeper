@@ -5,6 +5,7 @@ end
 -- import gamestate
 local GameController = require("gamecontroller")
 local StartMenu = require("startmenu")
+local event = require("event")
 
 -- Scene manager
 local scenes = {}
@@ -18,6 +19,7 @@ scenes = {
     startmenu = startMenuScene,
     game = gameScene
 }
+
 
 local function switchScene(name)
     if currentScene and currentScene.unload then currentScene:unload() end
