@@ -5,8 +5,18 @@ local function NewGameButton(x, y)
         margin = 10,
         x = x,
         y = y,
-        className = "NewGameButton"
+        className = "NewGameButton",
+        subscription = nil -- Store the subscription for later use
     }
+
+    -- Subscribe to the "mouseClick" signal when the button is instantiated
+    self.subscription = Signals:subscribe("mouseClick", function(mx, my, button)
+        if button == 1 and self:isClicked(mx, my) then
+            Signals:publish("newGame")
+            print("New Game button clicked")
+        end
+    end, 0, self)
+
     function self:draw()
         love.graphics.setColor(0.2, 0.6, 0.2)
         love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)

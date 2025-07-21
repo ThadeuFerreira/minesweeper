@@ -20,7 +20,8 @@ local function Signal()
         -- Deliver queued messages for this topic
         if self.queue[topic] then
             for _, message in ipairs(self.queue[topic]) do
-                callback(table.unpack(message))
+                local m = unpack(message)
+                callback(m)
             end
             self.queue[topic] = nil -- Clear the queue after processing
         end

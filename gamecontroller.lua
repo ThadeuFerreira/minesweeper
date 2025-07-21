@@ -16,7 +16,9 @@ local function GameController()
         screenHeight = love.graphics.getHeight(),
 
         components = {},
-        componentsByName = {}
+        componentsByName = {},
+
+        startNumberofMines = 2, -- Starting number of mines
     }
 
     self.__index = self
@@ -158,7 +160,7 @@ local function GameController()
     function self:nextLevel()
         self.currentLevel = self.currentLevel + 1
         -- Logic to increase difficulty, e.g., more mines, larger field, etc.
-        local newMineCount = math.min(7 + self.currentLevel * 3, 100) -- Example logic
+        local newMineCount = math.min(self.startNumberofMines + self.currentLevel * 3, 100) -- Example logic
         local newWidth = 10 + self.currentLevel -- Example logic
         local newHeight = 10 + self.currentLevel -- Example logic
         local cellSize = math.floor(math.min(self.screenWidth / newWidth, self.screenHeight / newHeight) * 0.8)
@@ -186,44 +188,38 @@ local function GameController()
         end
     end
 
+    Signals:subscribe("nextLevel", function()
+        print("Next level button clicked, proceeding to next level.")
+        self:nextLevel()
+        local timerComponent = self:getComponent("Timer")
+        if timerComponent and timerComponent.reset then
+            timerComponent:reset()
+        end
+        local cellHidenCounter = self:getComponent("CellsHiddenCounter")
+        if cellHidenCounter then
+            cellHidenCounter.count = 0
+            cellHidenCounter.gameWon = false
+        end
+    end, 0, self)
+
+    Signals:subscribe("newGame", function()
+        print("New game button clicked, restarting game.")
+        self:restartGame()
+        self:nextLevel()
+        local timerComponent = self:getComponent("Timer")
+        if timerComponent and timerComponent.reset then
+            timerComponent:reset()
+        end
+        local cellHidenCounter = self:getComponent("CellsHiddenCounter")
+        if cellHidenCounter then
+            cellHidenCounter.count = 0
+            cellHidenCounter.gameWon = false
+        end
+    end, 0, self)
+
     function self:mousepressed(x, y, button)
         -- Let components handle mouse press if they want
-        local newGameButton = self:getComponent("NewGameButton")
-        if newGameButton and newGameButton.isClicked and newGameButton:isClicked(x, y) then
-            self:restartGame()
-            self:nextLevel()
-            local timerComponent = self:getComponent("Timer")
-            if timerComponent and timerComponent.reset then
-                timerComponent:reset()
-            end
-            local cellHidenCounter = self:getComponent("CellsHiddenCounter")
-            if cellHidenCounter then
-                cellHidenCounter.count = 0
-                cellHidenCounter.gameWon = false
-            end
-            local nextLevelButton = self:getComponent("NextLevelButton")
-            if nextLevelButton then
-                self:removeComponent(nextLevelButton)
-            end
-            print("New game button clicked, restarting game.")
-            return
-        end
-        local nextLevelButton = self:getComponent("NextLevelButton")
-        if nextLevelButton and nextLevelButton.isClicked and nextLevelButton:isClicked(x, y) then
-            print("Next level button clicked, proceeding to next level.")
-            self:nextLevel()
-            local timerComponent = self:getComponent("Timer")
-            if timerComponent and timerComponent.reset then
-                timerComponent:reset()
-            end
-            local cellHidenCounter = self:getComponent("CellsHiddenCounter")
-            if cellHidenCounter then
-                cellHidenCounter.count = 0
-                cellHidenCounter.gameWon = false
-            end
-            self:removeComponent(nextLevelButton)
-            return
-        end
+        Signals:publish("mouseClick", x, y, button)
     end
 
     function self:mousereleased(x, y, button)
@@ -242,6 +238,9 @@ local function GameController()
 
     -- Add ECS-style component management
     function self:addComponent(component)
+        -- Pass a reference to the parent components
+        component.parent = self
+
         -- Add to array for iteration
         table.insert(self.components, component)
         
@@ -302,6 +301,11 @@ local function GameController()
     end
 
     function self:unload()
+        for _, comp in ipairs(self.components) do
+            if comp.unload then
+                comp:unload()
+            end
+        end
         -- Called when the game scene is exited
         self.components = {}
         self.componentsByName = {}

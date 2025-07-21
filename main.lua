@@ -5,7 +5,6 @@ end
 -- import gamestate
 local GameController = require("gamecontroller")
 local StartMenu = require("startmenu")
-local event = require("event")
 
 -- Scene manager
 local scenes = {}
