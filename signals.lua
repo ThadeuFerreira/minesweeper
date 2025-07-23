@@ -1,47 +1,87 @@
+-- Used for synchronous event handling in the game
+-- Components can subscribe to topics and receive messages
+-- The order of execution is determined by the order of subscription
+-- Don´t use this if you need the execution order to be guaranteed
+-- Each entity should have only one callback per topic
+-- This is a singleton module
 local function Signal()
     local self = {
         className = "Signal",
-        topics = {}, -- topic -> list of callbacks
-        queue = {} -- topic -> list of queued messages
+        topics = {},      -- topic -> { entity = { callbacks... } }
+        entityTopics = {}, -- entity -> { topics... }
+        queue = {}        -- topic -> list of queued messages
     }
 
-    function self:subscribe(topic, callback, priority, scope)
+    -- Subscribe to a topic with a callback and entity reference
+    function self:subscribe(topic, callback, entity)
+        -- Create topic entry if it doesn't exist
         if not self.topics[topic] then
             self.topics[topic] = {}
         end
-        local subscription = {callback = callback, priority = priority or 0, scope = scope}
-        table.insert(self.topics[topic], subscription)
-
-        -- Sort callbacks by priority
-        table.sort(self.topics[topic], function(a, b)
-            return a.priority > b.priority
-        end)
-
-        -- Deliver queued messages for this topic
-        if self.queue[topic] then
-            for _, message in ipairs(self.queue[topic]) do
-                local m = unpack(message)
-                callback(m)
-            end
-            self.queue[topic] = nil -- Clear the queue after processing
+        
+        -- Create entity entry in the topic if it doesn't exist
+        if not self.topics[topic][entity] then
+            self.topics[topic][entity] = {}
         end
-
-        -- Return the subscription for manual management
-        return subscription
+        
+        -- Create entity tracking entry if it doesn't exist
+        if not self.entityTopics[entity] then
+            self.entityTopics[entity] = {}
+        end
+        
+        -- Add topic to entity's tracked topics list
+        if not table.contains(self.entityTopics[entity], topic) then
+            table.insert(self.entityTopics[entity], topic)
+        end
+        
+        -- Add callback to entity's callback list for this topic
+        table.insert(self.topics[topic][entity], callback)
+        
+        return callback -- Return callback for reference
     end
 
-    function self:unsubscribe(topic, callback)
-        if not self.topics[topic] then return end
-        for i, cb in ipairs(self.topics[topic]) do
+    -- Unsubscribe a specific callback from a topic for an entity
+    function self:unsubscribe(topic, entity, callback)
+        if not self.topics[topic] or not self.topics[topic][entity] then 
+            return 
+        end
+        
+        -- Find and remove the specific callback
+        local callbacks = self.topics[topic][entity]
+        for i, cb in ipairs(callbacks) do
             if cb == callback then
-                table.remove(self.topics[topic], i)
+                table.remove(callbacks, i)
                 break
             end
         end
+        
+        -- If no callbacks left for this entity on this topic, clean up
+        if #callbacks == 0 then
+            self.topics[topic][entity] = nil
+            
+            -- Remove topic from entity's tracked topics
+            for i, t in ipairs(self.entityTopics[entity] or {}) do
+                if t == topic then
+                    table.remove(self.entityTopics[entity], i)
+                    break
+                end
+            end
+            
+            -- If no entities left for this topic, remove the topic entry
+            local hasEntities = false
+            for _ in pairs(self.topics[topic]) do
+                hasEntities = true
+                break
+            end
+            if not hasEntities then
+                self.topics[topic] = nil
+            end
+        end
     end
 
+    -- Publish a message to all subscribers of a topic
     function self:publish(topic, ...)
-        if not self.topics[topic] then
+        if not self.topics[topic] or next(self.topics[topic]) == nil then
             -- Queue the message if no subscribers exist
             if not self.queue[topic] then
                 self.queue[topic] = {}
@@ -50,29 +90,66 @@ local function Signal()
             return
         end
 
-         -- Deliver the message to all subscribers
-        for _, subscription in ipairs(self.topics[topic]) do
-            subscription.callback(...)
-        end
-    end
-
-    function self:unsubscribeScope(scope)
-        for topic, subscribers in pairs(self.topics) do
-            for i = #subscribers, 1, -1 do
-                if subscribers[i].scope == scope then
-                    table.remove(subscribers, i)
-                end
+        -- Deliver the message to all callbacks of each entity
+        for entity, callbacks in pairs(self.topics[topic]) do
+            for _, callback in ipairs(callbacks) do
+                callback(...)
             end
         end
     end
 
+    -- Unsubscribe all callbacks for an entity from all topics
+    function self:unsubscribeScope(entity)
+        -- Get all topics this entity is subscribed to
+        local topicsList = self.entityTopics[entity]
+        if not topicsList then return end
+        
+        -- Remove entity from each topic
+        for _, topic in ipairs(topicsList) do
+            self.topics[topic][entity] = nil
+            
+            -- If topic is now empty, clean it up
+            local hasEntities = false
+            for _ in pairs(self.topics[topic]) do
+                hasEntities = true
+                break
+            end
+            if not hasEntities then
+                self.topics[topic] = nil
+            end
+        end
+        
+        -- Clear entity's topic tracking
+        self.entityTopics[entity] = nil
+    end
+
+    -- Helper function to check if a table contains a value
+    function table.contains(tbl, value)
+        for _, v in ipairs(tbl) do
+            if v == value then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- Debug function to show all subscriptions
     function self:debug()
-        for topic, subscribers in pairs(self.topics) do
+        print("\n--- Signal Debug ---")
+        for topic, entities in pairs(self.topics) do
             print("Topic:", topic)
-            for _, subscriber in ipairs(subscribers) do
-                print("  Callback:", subscriber.callback, "Priority:", subscriber.priority or 0)
+            for entity, callbacks in pairs(entities) do
+                print("  Entity:", entity, "Callbacks:", #callbacks)
             end
         end
+        print("--- Entity Subscriptions ---")
+        for entity, topics in pairs(self.entityTopics) do
+            print("Entity:", entity)
+            for _, topic in ipairs(topics) do
+                print("  Topic:", topic)
+            end
+        end
+        print("--- End Signal Debug ---\n")
     end
 
     return self

@@ -48,7 +48,11 @@ local function GameController()
         
         -- save the game score
         self:saveGame()
-    end, 0, self)
+    end, self)
+
+    Signals:subscribe("mouseClick", function(mx, my, button)
+        print("Mouse clicked at: " .. mx .. ", " .. my .. " with button: " .. button)
+    end, self)
 
 
     function self:initializeField(width, height, mineCount, cellSize, offsetX, offsetY)
@@ -87,7 +91,7 @@ local function GameController()
             return
         end
         if hoverX ~= -1 and hoverY ~= -1 then
-            print("Mouse hover at: " .. hoverX .. ", " .. hoverY .. " with button: " .. button)
+            -- print("Mouse hover at: " .. hoverX .. ", " .. hoverY .. " with button: " .. button)
             if not self.currentHoverX or not self.currentHoverY then
                 self.currentHoverX = hoverX
                 self.currentHoverY = hoverY
@@ -200,7 +204,7 @@ local function GameController()
             cellHidenCounter.count = 0
             cellHidenCounter.gameWon = false
         end
-    end, 0, self)
+    end, self)
 
     Signals:subscribe("newGame", function()
         print("New game button clicked, restarting game.")
@@ -215,7 +219,7 @@ local function GameController()
             cellHidenCounter.count = 0
             cellHidenCounter.gameWon = false
         end
-    end, 0, self)
+    end, self)
 
     function self:mousepressed(x, y, button)
         -- Let components handle mouse press if they want

@@ -13,13 +13,13 @@ local function NextLevelButton(x, y)
     }
 
     -- Subscribe to the "mouseClick" signal when the button is instantiated
-    self.subscription = Signals:subscribe("mouseClick", function(mx, my, button)
+    Signals:subscribe("mouseClick", function(mx, my, button)
         if button == 1 and self:isClicked(mx, my) then
             Signals:publish("nextLevel")
             print("Next Level button clicked")
             self:destroySelf() -- Destroy the button after clicking
         end
-    end, 0, self)
+    end, self)
 
     function self:draw()
         love.graphics.setColor(0.2, 0.6, 0.2)
@@ -33,10 +33,10 @@ local function NextLevelButton(x, y)
 
     function self:destroy()
          -- Unsubscribe from the "mouseClick" signal when the button is destroyed
-        if self.subscription then
-            Signals:unsubscribe("mouseClick", self.subscription.callback)
-            self.subscription = nil -- Clear the subscription reference
-        end
+        
+        Signals:unsubscribeScope(self)
+        self.subscription = nil -- Clear the subscription reference
+        
         print("Destroying NextLevelButton")
     end
 

@@ -42,7 +42,7 @@ local function Timer(x, y, sevenSegments)
 
     Signals:subscribe("gameover", function(reason)
         self.running = false
-    end, 0, self)
+    end, self)
 
     function self:reset()
         self.elapsed = 0
