@@ -60,10 +60,11 @@ local function StartMenu(x, y)
     function self:load()
         -- Define button options
         local labels = {
-            {text = "Traditional - Easy", scene = "game", mode = "traditional", difficulty = "easy", color = {0.2, 0.6, 0.2}},
-            {text = "Traditional - Medium", scene = "game", mode = "traditional", difficulty = "medium", color = {0.6, 0.6, 0.2}},
-            {text = "Traditional - Hard", scene = "game", mode = "traditional", difficulty = "hard", color = {0.8, 0.4, 0.2}},
-            {text = "Traditional - Insane", scene = "game", mode = "traditional", difficulty = "insane", color = {0.8, 0.4, 0.2}},
+            {text = "Beginner", scene = "game", mode = "traditional", difficulty = "easy", color = {0.2, 0.6, 0.2}},
+            {text = "Intermediate", scene = "game", mode = "traditional", difficulty = "medium", color = {0.6, 0.6, 0.2}},
+            {text = "Hard", scene = "game", mode = "traditional", difficulty = "hard", color = {0.8, 0.4, 0.2}},
+            {text = "Insane", scene = "game", mode = "traditional", difficulty = "insane", color = {0.8, 0.2, 0.2}},
+            {text = "Endless Mode", scene = "game", mode = "endless", difficulty = nil, color = {0.5, 0.2, 0.8}},
             {text = "Campaign", scene = "campaign"},
             {text = "Custom", scene = "custom"},
             {text = "High Scores", scene = "highscores"},
@@ -96,7 +97,7 @@ local function StartMenu(x, y)
         for _, btn in ipairs(self.components) do
             if button == 1 and isOverComponent(x, y, btn) then
                 -- Switch to the selected scene (mode and difficulty handled in scene setup)
-                switchScene(btn.scene)
+                switchScene(btn.scene, btn.mode, btn.difficulty)
                 return true
             end
         end

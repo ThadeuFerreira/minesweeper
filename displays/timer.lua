@@ -102,7 +102,7 @@ local function Timer(x, y, sevenSegments)
         end
     end
 
-    function self:destroy()
+    function self:unload()
         -- Unsubscribe all signals for this component
         Signals:unsubscribeScope(self)
         -- (Optional) Release other resources here

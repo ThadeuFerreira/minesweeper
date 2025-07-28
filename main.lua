@@ -7,22 +7,21 @@ local GameController = require("gamecontroller")
 local StartMenu = require("startmenu")
 
 -- Scene manager
-local scenes = {}
-local currentScene = nil
-
--- Instantiate scenes as objects
-local startMenuScene = StartMenu()
-local gameScene = GameController()
-
-scenes = {
-    startmenu = startMenuScene,
-    game = gameScene
+local scenes = {
+    startmenu = StartMenu,
+    game = GameController,
 }
+local currentScene
 
 
-local function switchScene(name)
+local function switchScene(name, ...)
     if currentScene and currentScene.unload then currentScene:unload() end
-    currentScene = scenes[name]
+    local constructor = scenes[name]
+    if constructor then
+        currentScene = constructor(...)
+    else
+        currentScene = nil
+    end
     if currentScene and currentScene.load then currentScene:load() end
 end
 _G.switchScene = switchScene

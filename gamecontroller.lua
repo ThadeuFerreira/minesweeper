@@ -3,7 +3,7 @@ local utils = require("utils")
 local Displays = require("displays.displays")
 local Signals = require("signals")
 
-local function GameController()
+local function GameController(mode, difficulty)
     local self = {
         className = "GameController",
         CellSprites = {},
@@ -21,6 +21,9 @@ local function GameController()
         startNumberofMines = 2, -- Starting number of mines
     }
 
+    self.mode = mode or "traditional"
+    self.difficulty = difficulty or "easy"
+    self.endless = (self.mode == "endless")
     self.__index = self
 
     CellSpritesNames = {
@@ -75,6 +78,10 @@ local function GameController()
         end
         local gameWon = cellHidenCounter.gameWon
         if gameWon then
+            if not self.endless then
+                -- Traditional mode completes here; return to menu or await new game
+                return
+            end
             if self:getComponent("NextLevelButton") then
                 print("Next level button already exists, skipping creation.")
                 return
@@ -167,9 +174,15 @@ local function GameController()
         local newMineCount = math.min(self.startNumberofMines + self.currentLevel * 3, 100) -- Example logic
         local newWidth = 10 + self.currentLevel -- Example logic
         local newHeight = 10 + self.currentLevel -- Example logic
-        local cellSize = math.floor(math.min(self.screenWidth / newWidth, self.screenHeight / newHeight) * 0.8)
-        local offsetX = (self.screenWidth - (cellSize * newWidth)) / 2
-        local offsetY = (self.screenHeight - (cellSize * newHeight)) / 2
+        -- Calculate available width excluding UI sidebar
+        local sidebarMargin, sidebarWidth = 10, 100
+        local availableW = self.screenWidth - (sidebarWidth + sidebarMargin)
+        -- Compute cell size based on available area
+        local cellSize = math.floor(math.min(availableW / newWidth, self.screenHeight / newHeight) * 0.8)
+        local fieldW, fieldH = cellSize * newWidth, cellSize * newHeight
+        -- Center field within available area
+        local offsetX = (availableW - fieldW) / 2
+        local offsetY = (self.screenHeight - fieldH) / 2
 
         self:initializeField(newWidth, newHeight, newMineCount, cellSize, offsetX, offsetY)
     end
@@ -207,9 +220,8 @@ local function GameController()
     end, self)
 
     Signals:subscribe("newGame", function()
-        print("New game button clicked, restarting game.")
-        self:restartGame()
-        self:nextLevel()
+        print("Restarting game.")
+
         local timerComponent = self:getComponent("Timer")
         if timerComponent and timerComponent.reset then
             timerComponent:reset()
@@ -219,6 +231,13 @@ local function GameController()
             cellHidenCounter.count = 0
             cellHidenCounter.gameWon = false
         end
+        self:unload() -- Clear current state
+        self:load()
+    end, self)
+
+    Signals:subscribe("returnToMainMenu", function()
+        print("Return to main menu signal received.")
+        self:returnToMenu()
     end, self)
 
     function self:mousepressed(x, y, button)
@@ -281,8 +300,34 @@ local function GameController()
     end
 
     function self:load()
-        -- Called when the game scene is entered
-        self:nextLevel()
+        -- Called when the game scene is entered; initialize field based on mode
+        if self.mode == "traditional" then
+            -- Preset configurations
+            local presets = {
+                easy = {width = 9, height = 9, mines = 10},
+                medium = {width = 16, height = 16, mines = 40},
+                hard = {width = 30, height = 16, mines = 99},
+                insane = {width = 30, height = 24, mines = 200},
+            }
+            local p = presets[self.difficulty] or presets.easy
+            self.currentLevel = 1
+            -- Calculate available width excluding UI sidebar
+            local sidebarMargin, sidebarWidth = 10, 100
+            local availableW = self.screenWidth - (sidebarWidth + sidebarMargin)
+            -- Compute cell size based on available area
+            local cellSize = math.floor(math.min(availableW / p.width, self.screenHeight / p.height) * 0.8)
+            local fieldW, fieldH = cellSize * p.width, cellSize * p.height
+            local offsetX = (availableW - fieldW) / 2
+            local offsetY = (self.screenHeight - fieldH) / 2
+            self:initializeField(p.width, p.height, p.mines, cellSize, offsetX, offsetY)
+        elseif self.mode == "endless" then
+            -- Endless starts at level 1 via nextLevel logic
+            self.currentLevel = 0
+            self:nextLevel()
+        else
+            -- Default behavior
+            self:nextLevel()
+        end
         -- Create SevenSegment instance first
         if not self.SS then
             local SevenSegments = require("displays.sevensegments")
@@ -296,6 +341,8 @@ local function GameController()
         local x = love.graphics.getWidth() - width - margin
         local y = margin
         self:addComponent(Displays.NewGameButton(x, y))
+        y = y + height + margin
+        self:addComponent(Displays.ReturnToMainMenuButton(x, y))
         y = y + height + margin
         self:addComponent(Displays.Timer(x, y, self.SS))
         y = y + 60 + margin

@@ -402,4 +402,13 @@ function MineField:update(dt)
     -- This can include animations, timers, etc.
 end
 
+function MineField:unload()
+    -- Cleanup logic for the minefield if needed
+    -- This can include freeing resources, stopping timers, etc.
+    self.board = {}
+    self.isInitialized = false
+    self.hoverPressedCells = {}
+    self.hoverCenter = nil
+end
+
 return MineField

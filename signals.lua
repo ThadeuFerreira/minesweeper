@@ -14,6 +14,8 @@ local function Signal()
 
     -- Subscribe to a topic with a callback and entity reference
     function self:subscribe(topic, callback, entity)
+        -- Use callback as entity if none provided
+        if entity == nil then entity = callback end
         -- Create topic entry if it doesn't exist
         if not self.topics[topic] then
             self.topics[topic] = {}
@@ -40,7 +42,31 @@ local function Signal()
         return callback -- Return callback for reference
     end
 
-    -- Unsubscribe a specific callback from a topic for an entity
+
+
+    -- Publish a message to all subscribers of a topic
+    function self:publish(topic, ...)
+        if not self.topics[topic] or next(self.topics[topic]) == nil then
+            -- Queue the message if no subscribers exist
+            if not self.queue[topic] then
+                self.queue[topic] = {}
+            end
+            table.insert(self.queue[topic], {...})
+            return
+        end
+
+        -- Debug: Print the topic and arguments being published
+        print("[Signal Debug] Publishing topic:", topic, "with args:", ...)
+
+        -- Deliver the message to all callbacks of each entity
+        for entity, callbacks in pairs(self.topics[topic]) do
+            for _, callback in ipairs(callbacks) do
+                callback(...)
+            end
+        end
+    end
+
+        -- Unsubscribe a specific callback from a topic for an entity
     function self:unsubscribe(topic, entity, callback)
         if not self.topics[topic] or not self.topics[topic][entity] then 
             return 
@@ -79,36 +105,19 @@ local function Signal()
         end
     end
 
-    -- Publish a message to all subscribers of a topic
-    function self:publish(topic, ...)
-        if not self.topics[topic] or next(self.topics[topic]) == nil then
-            -- Queue the message if no subscribers exist
-            if not self.queue[topic] then
-                self.queue[topic] = {}
-            end
-            table.insert(self.queue[topic], {...})
-            return
-        end
-
-        -- Deliver the message to all callbacks of each entity
-        for entity, callbacks in pairs(self.topics[topic]) do
-            for _, callback in ipairs(callbacks) do
-                callback(...)
-            end
-        end
-    end
-
     -- Unsubscribe all callbacks for an entity from all topics
     function self:unsubscribeScope(entity)
-        -- Get all topics this entity is subscribed to
-        local topicsList = self.entityTopics[entity]
-        if not topicsList then return end
-        
-        -- Remove entity from each topic
-        for _, topic in ipairs(topicsList) do
-            self.topics[topic][entity] = nil
+        --topics subscribed by the entity
+        local topics = self.entityTopics[entity]
+        if not topics then return end
+
+        for _, topic in ipairs(topics) do
+            -- Remove the entity from the topic's callbacks
+            if self.topics[topic] and self.topics[topic][entity] then
+                self.topics[topic][entity] = nil
+            end
             
-            -- If topic is now empty, clean it up
+            -- If no callbacks left for this topic, clean up
             local hasEntities = false
             for _ in pairs(self.topics[topic]) do
                 hasEntities = true
@@ -118,9 +127,6 @@ local function Signal()
                 self.topics[topic] = nil
             end
         end
-        
-        -- Clear entity's topic tracking
-        self.entityTopics[entity] = nil
     end
 
     -- Helper function to check if a table contains a value
