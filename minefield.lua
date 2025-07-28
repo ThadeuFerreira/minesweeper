@@ -163,22 +163,21 @@ function MineField:clickCell(gridX, gridY)
     local cell = self.board[gridX][gridY]
         
     if cell.current_state == CellState.REVEALED or  cell.current_state == CellState.FLAGGED then
-            local flagsCount = self:countSurroundFlags(gridX, gridY)
-            if flagsCount == cell.value then
-                for _, coord in ipairs(self.hoverPressedCells) do
-                    local x, y = coord.x, coord.y
-                    local nCell = self.board[x][y]
-                    if nCell.isMine then
-                        -- If a mine is pressed, reveal it
-                        self:RevealGrid() -- Reveal the entire grid
-                    elseif nCell.current_state == CellState.PRESSED then
-                        nCell.current_state = CellState.HIDDEN -- Reset to hidden state
-                        self:revealCell(x, y) -- Reveal the cell
-                    end
+        local flagsCount = self:countSurroundFlags(gridX, gridY)
+        if flagsCount == cell.value then
+            for _, coord in ipairs(self.hoverPressedCells) do
+                local x, y = coord.x, coord.y
+                local nCell = self.board[x][y]
+                if nCell.current_state == CellState.PRESSED then
+                    nCell.current_state = CellState.HIDDEN -- Reset to hidden state
+                    self:revealCell(x, y) -- Reveal the cell
                 end
-                self.hoverPressedCells = {} -- Clear the hover pressed cells after revealing
             end
+            self.hoverPressedCells = {} -- Clear the hover pressed cells after revealing
         end
+        return
+    end
+    
     if cell.isMine then
         -- Handle mine hit logic here
         Signals:publish("gameover", "player died")

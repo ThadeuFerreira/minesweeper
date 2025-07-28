@@ -18,7 +18,7 @@ local function GameController(mode, difficulty)
         components = {},
         componentsByName = {},
 
-        startNumberofMines = 2, -- Starting number of mines
+        mineDensity = 5, -- Starting number of mines
     }
 
     self.mode = mode or "traditional"
@@ -170,10 +170,25 @@ local function GameController(mode, difficulty)
 
     function self:nextLevel()
         self.currentLevel = self.currentLevel + 1
-        -- Logic to increase difficulty, e.g., more mines, larger field, etc.
-        local newMineCount = math.min(self.startNumberofMines + self.currentLevel * 3, 100) -- Example logic
-        local newWidth = 10 + self.currentLevel -- Example logic
-        local newHeight = 10 + self.currentLevel -- Example logic
+
+        local newWidth = 10 + self.currentLevel
+        local newHeight = 10 + self.currentLevel
+
+        -- mine density follows a discrete sigmoid-like curve
+        -- from level 1 to 10, linear, from 10 to 20, exponential, from 20+ linear again
+        local numCells = newWidth * newHeight
+        local nextLevelDensity = self.mineDensity
+        if self.currentLevel <= 10 then
+            nextLevelDensity = self.mineDensity + self.currentLevel *1.5 -- Linear increase
+        elseif self.currentLevel <= 20 then
+            nextLevelDensity = self.mineDensity + (self.currentLevel - 10) * (self.currentLevel - 10) * 0.5
+        else
+            nextLevelDensity = self.mineDensity + (self.currentLevel - 20) * 1.5
+        end
+        local newMineCount = math.floor(numCells * nextLevelDensity / 100) -- Convert density to mine count
+        print("Next level: " .. self.currentLevel .. ", Width: " .. newWidth .. ", Height: " .. newHeight .. ", Mines: " .. newMineCount)
+
+        
         -- Calculate available width excluding UI sidebar
         local sidebarMargin, sidebarWidth = 10, 100
         local availableW = self.screenWidth - (sidebarWidth + sidebarMargin)
